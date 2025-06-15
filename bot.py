@@ -3,6 +3,7 @@ import asyncio
 from datetime import datetime
 from typing import Optional, Dict
 import io
+import urllib.parse
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand
 from telegram.ext import (
@@ -241,8 +242,12 @@ class SSHVPNBot:
 💡 **Tip:** Share in groups, social media, or with friends!
 """
             
+            # URL encode the referral link for sharing
+            encoded_link = urllib.parse.quote(referral_link, safe='')
+            share_url = "https://t.me/share/url?url=" + encoded_link
+            
             keyboard = [
-                [InlineKeyboardButton("📱 Share Link", url=f"https://t.me/share/url?url={referral_link}")],
+                [InlineKeyboardButton("📱 Share Link", url=share_url)],
                 [InlineKeyboardButton("📊 QR Code", callback_data="qr_referral")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
@@ -345,7 +350,10 @@ class SSHVPNBot:
                 created_at = config.get("created_at", datetime.utcnow())
                 
                 if isinstance(created_at, str):
-                    created_at = datetime.fromisoformat(created_at)
+                    try:
+                        created_at = datetime.fromisoformat(created_at)
+                    except ValueError:
+                        created_at = datetime.utcnow()
                 
                 formatted_date = TimeUtils.get_readable_time(created_at)
                 text += f"{i}. **{config_type}** - {formatted_date}\n"
@@ -423,6 +431,8 @@ Contact: @YourSupportUsername
                 await self.handle_qr_referral(query, context)
             elif query.data.startswith("qr_config"):
                 await self.handle_qr_config(query, context)
+            elif query.data == "main_menu":
+                await self.handle_main_menu(query, context)
                 
         except Exception as e:
             logger.error(f"Error in button callback: {e}")
@@ -519,7 +529,7 @@ Contact: @YourSupportUsername
             
             # Create keyboard with QR option
             keyboard = [
-                [InlineKeyboardButton("📱 Generate QR Code", callback_data=f"qr_config_{config_data['type']}")],
+                [InlineKeyboardButton("📱 Generate QR Code", callback_data="qr_config_" + config_data['type'])],
                 [InlineKeyboardButton("🔄 Generate Another", callback_data="generate")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
@@ -604,8 +614,12 @@ Contact: @YourSupportUsername
 3. You get {POINTS_CONFIG['referral']} point(s) per referral
 """
         
+        # URL encode the referral link for sharing
+        encoded_link = urllib.parse.quote(referral_link, safe='')
+        share_url = "https://t.me/share/url?url=" + encoded_link
+        
         keyboard = [
-            [InlineKeyboardButton("📱 Share Link", url=f"https://t.me/share/url?url={referral_link}")],
+            [InlineKeyboardButton("📱 Share Link", url=share_url)],
             [InlineKeyboardButton("📊 QR Code", callback_data="qr_referral")],
             [InlineKeyboardButton("🔙 Back to Menu", callback_data="main_menu")]
         ]
@@ -615,7 +629,6 @@ Contact: @YourSupportUsername
 
     async def handle_join_callback(self, query, context):
         """Handle join channels callback"""
-        # This is similar to join_command but adapted for callback
         user_id = query.from_user.id
         user = db.get_user(user_id)
         
@@ -673,17 +686,25 @@ Contact: @YourSupportUsername
             db.add_points(user_id, points_awarded, "channel_join_bonus")
             db.set_channels_joined(user_id, True)
             
+            keyboard = [[InlineKeyboardButton("🔙 Back to Menu", callback_data="main_menu")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
             await query.edit_message_text(
                 f"🎉 **Congratulations!**\n\n"
                 f"You've earned **{points_awarded} points** for joining all sponsor channels!\n\n"
                 f"Use the menu below to generate configs or check your balance.",
+                reply_markup=reply_markup,
                 parse_mode='Markdown'
             )
         else:
+            keyboard = [[InlineKeyboardButton("🔙 Back to Menu", callback_data="main_menu")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
             await query.edit_message_text(
                 "❌ **Not all channels joined**\n\n"
                 "Please make sure you've joined ALL sponsor channels before checking again.\n\n"
                 "💡 Tip: Click on each channel link and join them.",
+                reply_markup=reply_markup,
                 parse_mode='Markdown'
             )
 
@@ -885,8 +906,15 @@ Use /admin_users for user management.
 
 # Main execution
 async def main():
-    bot = SSHVPNBot()
-    await bot.run()
+    """Main function to run the bot"""
+    try:
+        bot = SSHVPNBot()
+        await bot.run()
+    except KeyboardInterrupt:
+        logger.info("Bot stopped by user")
+    except Exception as e:
+        logger.error(f"Fatal error: {e}")
+        raise
 
 if __name__ == "__main__":
     try:

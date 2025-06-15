@@ -1,6 +1,13 @@
 import os
 from typing import List, Dict
 
+# Load environment variables
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 # Bot Configuration
 BOT_TOKEN = os.getenv("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
 BOT_USERNAME = os.getenv("BOT_USERNAME", "ssh_v2ray_bot")
@@ -10,7 +17,11 @@ MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://username:password@cluster.mong
 DB_NAME = os.getenv("DB_NAME", "sshbot")
 
 # Admin Configuration
-ADMIN_IDS = [int(x) for x in os.getenv("ADMIN_IDS", "123456789").split(",")]
+ADMIN_IDS_STR = os.getenv("ADMIN_IDS", "123456789")
+try:
+    ADMIN_IDS = [int(x.strip()) for x in ADMIN_IDS_STR.split(",") if x.strip()]
+except ValueError:
+    ADMIN_IDS = [123456789]  # Default admin ID
 
 # Sponsor Channels (Replace with your actual channel IDs)
 CHANNELS = [
