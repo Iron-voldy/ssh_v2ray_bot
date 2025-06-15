@@ -1,12 +1,9 @@
 import qrcode
-from qrcode.image.styledpil import StyledPilImage
-from qrcode.image.styles.moduledrawers import RoundedModuleDrawer, SquareModuleDrawer
-from qrcode.image.styles.colorfills import SolidFillColorMask
 from PIL import Image, ImageDraw, ImageFont
 import io
-import base64
+import json
 import logging
-from typing import Optional, Union
+from typing import Optional
 
 # Configure logging  
 logging.basicConfig(level=logging.INFO)
@@ -24,16 +21,16 @@ class QRCodeGenerator:
     def generate_qr_code(self, 
                         data: str, 
                         filename: Optional[str] = None,
-                        style: str = "default",
-                        logo_path: Optional[str] = None) -> Optional[bytes]:
+                        fill_color: str = "black",
+                        back_color: str = "white") -> Optional[bytes]:
         """
-        Generate QR code with various styling options
+        Generate QR code with basic styling
         
         Args:
             data: Data to encode in QR code
             filename: Optional filename to save QR code
-            style: Style type ('default', 'rounded', 'colored')
-            logo_path: Optional path to logo image to embed
+            fill_color: QR code color
+            back_color: Background color
             
         Returns:
             QR code image as bytes
@@ -43,30 +40,8 @@ class QRCodeGenerator:
             qr.add_data(data)
             qr.make(fit=True)
             
-            # Generate based on style
-            if style == "rounded":
-                img = qr.make_image(
-                    image_factory=StyledPilImage,
-                    module_drawer=RoundedModuleDrawer(),
-                    fill_color="black",
-                    back_color="white"
-                )
-            elif style == "colored":
-                img = qr.make_image(
-                    image_factory=StyledPilImage,
-                    module_drawer=SquareModuleDrawer(),
-                    color_mask=SolidFillColorMask(
-                        back_color=(255, 255, 255),  # White background
-                        front_color=(0, 100, 200)    # Blue foreground
-                    )
-                )
-            else:
-                # Default style
-                img = qr.make_image(fill_color="black", back_color="white")
-            
-            # Add logo if provided
-            if logo_path:
-                img = self.add_logo_to_qr(img, logo_path)
+            # Generate QR code image
+            img = qr.make_image(fill_color=fill_color, back_color=back_color)
             
             # Convert to bytes
             img_bytes = self.image_to_bytes(img)
@@ -74,48 +49,13 @@ class QRCodeGenerator:
             # Save if filename provided
             if filename:
                 img.save(filename)
-                logger.info(f"QR code saved as {filename}")
+                logger.info("QR code saved as {}".format(filename))
             
             return img_bytes
             
         except Exception as e:
-            logger.error(f"Error generating QR code: {e}")
+            logger.error("Error generating QR code: {}".format(e))
             return None
-    
-    def add_logo_to_qr(self, qr_img: Image.Image, logo_path: str) -> Image.Image:
-        """Add logo to center of QR code"""
-        try:
-            logo = Image.open(logo_path)
-            
-            # Calculate logo size (10% of QR code)
-            qr_width, qr_height = qr_img.size
-            logo_size = min(qr_width, qr_height) // 10
-            
-            # Resize logo
-            logo = logo.resize((logo_size, logo_size), Image.Resampling.LANCZOS)
-            
-            # Create circular mask for logo
-            mask = Image.new("L", (logo_size, logo_size), 0)
-            draw = ImageDraw.Draw(mask)
-            draw.ellipse((0, 0, logo_size, logo_size), fill=255)
-            
-            # Apply mask to logo
-            logo.putalpha(mask)
-            
-            # Calculate position (center)
-            logo_pos = (
-                (qr_width - logo_size) // 2,
-                (qr_height - logo_size) // 2
-            )
-            
-            # Paste logo onto QR code
-            qr_img.paste(logo, logo_pos, logo)
-            
-            return qr_img
-            
-        except Exception as e:
-            logger.error(f"Error adding logo to QR code: {e}")
-            return qr_img
     
     def image_to_bytes(self, img: Image.Image, format: str = "PNG") -> bytes:
         """Convert PIL Image to bytes"""
@@ -125,7 +65,7 @@ class QRCodeGenerator:
             img_buffer.seek(0)
             return img_buffer.getvalue()
         except Exception as e:
-            logger.error(f"Error converting image to bytes: {e}")
+            logger.error("Error converting image to bytes: {}".format(e))
             return b""
     
     def generate_config_qr(self, config_data: dict) -> Optional[bytes]:
@@ -136,7 +76,7 @@ class QRCodeGenerator:
             if config_type in ["vmess", "vless"]:
                 # Use the direct link for V2Ray configs
                 qr_data = config_data.get("link", "")
-                style = "colored"
+                fill_color = "blue"
             elif config_type == "ssh":
                 # Create SSH connection string
                 host = config_data.get("host", "")
@@ -144,39 +84,38 @@ class QRCodeGenerator:
                 username = config_data.get("username", "")
                 password = config_data.get("password", "")
                 
-                qr_data = f"ssh://{username}:{password}@{host}:{port}"
-                style = "default"
+                qr_data = "ssh://{}:{}@{}:{}".format(username, password, host, port)
+                fill_color = "black"
             else:
                 # Fallback to JSON
-                import json
                 qr_data = json.dumps(config_data, indent=2)
-                style = "rounded"
+                fill_color = "green"
             
             if not qr_data:
                 logger.error("No data to encode in QR code")
                 return None
                 
-            return self.generate_qr_code(qr_data, style=style)
+            return self.generate_qr_code(qr_data, fill_color=fill_color)
             
         except Exception as e:
-            logger.error(f"Error generating config QR code: {e}")
+            logger.error("Error generating config QR code: {}".format(e))
             return None
     
     def generate_referral_qr(self, bot_username: str, user_id: int) -> Optional[bytes]:
         """Generate QR code for referral link"""
         try:
-            referral_link = f"https://t.me/{bot_username}?start={user_id}"
-            return self.generate_qr_code(referral_link, style="colored")
+            referral_link = "https://t.me/{}?start={}".format(bot_username, user_id)
+            return self.generate_qr_code(referral_link, fill_color="purple")
         except Exception as e:
-            logger.error(f"Error generating referral QR code: {e}")
+            logger.error("Error generating referral QR code: {}".format(e))
             return None
     
     def generate_channel_qr(self, channel_url: str) -> Optional[bytes]:
         """Generate QR code for channel link"""
         try:
-            return self.generate_qr_code(channel_url, style="rounded")
+            return self.generate_qr_code(channel_url, fill_color="orange")
         except Exception as e:
-            logger.error(f"Error generating channel QR code: {e}")
+            logger.error("Error generating channel QR code: {}".format(e))
             return None
 
 class QRCodeWithText:
@@ -214,18 +153,31 @@ class QRCodeWithText:
             draw = ImageDraw.Draw(card)
             
             try:
-                # Try to load a font
+                # Try to load a system font
                 font_title = ImageFont.truetype("arial.ttf", 24)
                 font_text = ImageFont.truetype("arial.ttf", 16)
             except:
-                # Fallback to default font
-                font_title = ImageFont.load_default()
-                font_text = ImageFont.load_default()
+                try:
+                    # Try alternative fonts
+                    font_title = ImageFont.truetype("calibri.ttf", 24)
+                    font_text = ImageFont.truetype("calibri.ttf", 16)
+                except:
+                    # Fallback to default font
+                    font_title = ImageFont.load_default()
+                    font_text = ImageFont.load_default()
             
             # Draw title
-            title = f"{config_data.get('type', 'Config').upper()} Configuration"
-            title_bbox = draw.textbbox((0, 0), title, font=font_title)
-            title_x = (card_width - (title_bbox[2] - title_bbox[0])) // 2
+            title = "{} Configuration".format(config_data.get('type', 'Config').upper())
+            
+            # Get text size using textbbox (compatible method)
+            try:
+                title_bbox = draw.textbbox((0, 0), title, font=font_title)
+                title_width = title_bbox[2] - title_bbox[0]
+            except:
+                # Fallback for older Pillow versions
+                title_width = len(title) * 12  # Approximate
+            
+            title_x = (card_width - title_width) // 2
             draw.text((title_x, 10), title, fill="black", font=font_title)
             
             # Draw config details
@@ -234,40 +186,50 @@ class QRCodeWithText:
             config_type = config_data.get("type", "").lower()
             if config_type == "ssh":
                 details = [
-                    f"Server: {config_data.get('host', 'N/A')}",
-                    f"Port: {config_data.get('port', 'N/A')}",
-                    f"Username: {config_data.get('username', 'N/A')}",
-                    f"Password: {config_data.get('password', 'N/A')}"
+                    "Server: {}".format(config_data.get('host', 'N/A')),
+                    "Port: {}".format(config_data.get('port', 'N/A')),
+                    "Username: {}".format(config_data.get('username', 'N/A')),
+                    "Password: {}".format(config_data.get('password', 'N/A'))
                 ]
             elif config_type in ["vmess", "vless"]:
                 details = [
-                    f"Type: {config_type.upper()}",
-                    f"Server: {config_data.get('server', 'N/A')}",
-                    f"Port: {config_data.get('port', 'N/A')}",
+                    "Type: {}".format(config_type.upper()),
+                    "Server: {}".format(config_data.get('server', 'N/A')),
+                    "Port: {}".format(config_data.get('port', 'N/A')),
                     "Scan QR code to import"
                 ]
             else:
                 details = ["Scan QR code for configuration"]
             
             for detail in details:
-                detail_bbox = draw.textbbox((0, 0), detail, font=font_text)
-                detail_x = (card_width - (detail_bbox[2] - detail_bbox[0])) // 2
+                try:
+                    detail_bbox = draw.textbbox((0, 0), detail, font=font_text)
+                    detail_width = detail_bbox[2] - detail_bbox[0]
+                except:
+                    detail_width = len(detail) * 8  # Approximate
+                
+                detail_x = (card_width - detail_width) // 2
                 draw.text((detail_x, y_offset), detail, fill="black", font=font_text)
                 y_offset += 30
             
             # Add expiry info
             expires_at = config_data.get("expires_at", "")
             if expires_at:
-                expiry_text = f"Expires: {expires_at[:10]}"  # Just the date part
-                expiry_bbox = draw.textbbox((0, 0), expiry_text, font=font_text)
-                expiry_x = (card_width - (expiry_bbox[2] - expiry_bbox[0])) // 2
+                expiry_text = "Expires: {}".format(expires_at[:10])  # Just the date part
+                try:
+                    expiry_bbox = draw.textbbox((0, 0), expiry_text, font=font_text)
+                    expiry_width = expiry_bbox[2] - expiry_bbox[0]
+                except:
+                    expiry_width = len(expiry_text) * 8
+                
+                expiry_x = (card_width - expiry_width) // 2
                 draw.text((expiry_x, y_offset + 20), expiry_text, fill="red", font=font_text)
             
             # Convert to bytes
             return self.qr_gen.image_to_bytes(card)
             
         except Exception as e:
-            logger.error(f"Error creating config card: {e}")
+            logger.error("Error creating config card: {}".format(e))
             return None
 
 # Global instances
