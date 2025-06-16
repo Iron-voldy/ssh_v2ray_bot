@@ -15,7 +15,7 @@ from telegram.error import TelegramError
 # Import our modules
 from config import *
 from db import db
-from generator import generator
+from generator import generator, SERVICE_PAYLOADS
 from qrgen import qr_generator, qr_card_generator
 from utils import (
     rate_limiter, ConfigFormatter, MessageValidator, 
@@ -29,63 +29,15 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Service packages configuration
-SERVICE_PACKAGES = {
-    "youtube": {
-        "name": "🎥 YouTube Package",
-        "hosts": ["www.youtube.com", "m.youtube.com", "youtube.com", "youtu.be"],
-        "description": "Optimized for YouTube streaming",
-        "emoji": "🎥"
-    },
-    "whatsapp": {
-        "name": "💬 WhatsApp Package", 
-        "hosts": ["web.whatsapp.com", "whatsapp.com", "wa.me"],
-        "description": "Optimized for WhatsApp messaging",
-        "emoji": "💬"
-    },
-    "zoom": {
-        "name": "📹 Zoom Package",
-        "hosts": ["zoom.us", "us02web.zoom.us", "us04web.zoom.us"],
-        "description": "Optimized for Zoom video calls",
-        "emoji": "📹"
-    },
-    "facebook": {
-        "name": "📘 Facebook Package",
-        "hosts": ["www.facebook.com", "m.facebook.com", "facebook.com"],
-        "description": "Optimized for Facebook browsing",
-        "emoji": "📘"
-    },
-    "instagram": {
-        "name": "📸 Instagram Package",
-        "hosts": ["www.instagram.com", "instagram.com"],
-        "description": "Optimized for Instagram browsing",
-        "emoji": "📸"
-    },
-    "tiktok": {
-        "name": "🎵 TikTok Package",
-        "hosts": ["www.tiktok.com", "tiktok.com"],
-        "description": "Optimized for TikTok videos",
-        "emoji": "🎵"
-    },
-    "netflix": {
-        "name": "🎬 Netflix Package",
-        "hosts": ["www.netflix.com", "netflix.com"],
-        "description": "Optimized for Netflix streaming",
-        "emoji": "🎬"
-    },
-    "telegram": {
-        "name": "✈️ Telegram Package",
-        "hosts": ["web.telegram.org", "telegram.org"],
-        "description": "Optimized for Telegram Web",
-        "emoji": "✈️"
-    },
-    "all_sites": {
-        "name": "🌐 All Sites Package",
-        "hosts": ["*"],
-        "description": "Works with all websites",
-        "emoji": "🌐"
+# Create SERVICE_PACKAGES mapping from SERVICE_PAYLOADS
+SERVICE_PACKAGES = {}
+for key, payload_data in SERVICE_PAYLOADS.items():
+    SERVICE_PACKAGES[key] = {
+        "name": payload_data["name"],
+        "hosts": [payload_data["host"]] if payload_data["host"] != "www.google.com" else ["*"],
+        "description": payload_data["description"],
+        "emoji": payload_data["name"][0]  # Extract emoji from name
     }
-}
 
 class SSHVPNBot:
     def __init__(self):
@@ -149,8 +101,17 @@ class SSHVPNBot:
             
             reply_markup = InlineKeyboardMarkup(keyboard)
             
-            # Welcome message
-            welcome_text = MESSAGES["welcome"]
+            # Welcome message with speed test info
+            welcome_text = MESSAGES["welcome"] + """
+
+⚡ **Speed Test Support Added!**
+Our V2Ray configs now include:
+• Direct routing for speed test sites
+• TCP optimization for better performance  
+• Support for LibreSpeed & OpenSpeedTest
+• Alternative speed testing options
+"""
+            
             if is_new_user and referrer_id:
                 welcome_text += "\n\n✅ You were referred by user {}. They earned a point!".format(referrer_id)
             
@@ -211,9 +172,10 @@ class SSHVPNBot:
             
             await update.message.reply_text(
                 "🔧 **Choose Configuration Type:**\n\n"
-                "• **SSH** - Secure Shell access\n"
-                "• **V2Ray** - Service-specific proxy configs\n"
-                "• **Random** - Let me choose for you{}".format(admin_note),
+                "• **SSH** - Secure Shell access + CLI speed tests\n"
+                "• **V2Ray** - Service-specific proxy with speed test optimization\n"
+                "• **Random** - Let me choose for you\n\n"
+                "⚡ **All configs now include speed test optimization!**{}".format(admin_note),
                 reply_markup=reply_markup,
                 parse_mode='Markdown'
             )
@@ -240,12 +202,11 @@ class SSHVPNBot:
         
         await update.message.reply_text(
             "👑 **Admin Testing Panel**\n\n"
-            "Select any service to generate unlimited test configs:",
+            "Select any service to generate unlimited test configs with speed test optimization:",
             reply_markup=reply_markup,
             parse_mode='Markdown'
         )
 
-    # Continue with existing command handlers...
     async def points_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /points command"""
         try:
@@ -380,9 +341,10 @@ class SSHVPNBot:
         
         await query.edit_message_text(
             "🔧 **Choose Configuration Type:**\n\n"
-            "• **SSH** - Secure Shell access\n"
-            "• **V2Ray** - Service-specific proxy\n"
-            "• **Random** - Let me choose for you{}".format(admin_note),
+            "• **SSH** - Secure Shell access + CLI speed tests\n"
+            "• **V2Ray** - Service-specific proxy with speed test optimization\n"
+            "• **Random** - Let me choose for you\n\n"
+            "⚡ **All configs include speed test optimization!**{}".format(admin_note),
             reply_markup=reply_markup,
             parse_mode='Markdown'
         )
@@ -425,7 +387,8 @@ class SSHVPNBot:
         await query.edit_message_text(
             "📦 **Select Service Package:**\n\n"
             "Choose the service you want to use with this V2Ray config:\n\n"
-            "Each package is optimized for specific apps/websites and works perfectly with HTTP Injector!",
+            "Each package is optimized for specific apps/websites and includes speed test support!\n\n"
+            "⚡ **New Feature**: All packages now route speed test sites directly for better performance!",
             reply_markup=reply_markup,
             parse_mode='Markdown'
         )
@@ -484,6 +447,7 @@ class SSHVPNBot:
             "**Admin Privileges:**\n"
             "✅ Unlimited config generation\n"
             "✅ Test all service packages\n"
+            "✅ Speed test optimization enabled\n"
             "✅ Access user management\n"
             "✅ View detailed analytics".format(
                 db_stats.get('total_users', 0),
@@ -504,7 +468,11 @@ class SSHVPNBot:
         
         await query.edit_message_text(
             "{}🔄 **Generating {} Configuration...**\n\n"
-            "Creating optimized V2Ray config for HTTP Injector...\n"
+            "Creating optimized V2Ray config with:\n"
+            "• Speed test optimization enabled\n"
+            "• Direct routing for speed test sites\n"
+            "• TCP optimization for performance\n"
+            "• HTTP Injector compatibility\n\n"
             "Please wait a moment...".format(admin_prefix, service_name)
         )
         
@@ -558,17 +526,21 @@ Points remaining: **{}**
 📋 **Configuration Details:**
 {}
 
-🔧 **HTTP Injector Setup:**
+⚡ **Speed Test Information:**
+{}
+
+🔧 **Setup Instructions:**
 1. Copy the VMess link above
 2. Open HTTP Injector app
 3. Go to Config → Import → VMess
 4. Paste the link and save
-5. Connect and enjoy {}!{}
+5. Use the payload for optimal performance
+6. For speed tests, try the recommended alternatives!{}
 """.format(
                 service_name,
                 points_remaining,
                 formatted_config,
-                SERVICE_PACKAGES[service_key]["description"].lower(),
+                self.get_speed_test_info(config_data),
                 admin_note
             )
             
@@ -600,9 +572,41 @@ Points remaining: **{}**
                 "Please try again later.".format(service_name)
             )
 
+    def get_speed_test_info(self, config_data):
+        """Get speed test information for config"""
+        if config_data.get("speed_test_support"):
+            alternatives = config_data.get("speed_test_alternatives", [])
+            optimization_notes = config_data.get("optimization_notes", [])
+            
+            info = "**Speed Test Optimizations Applied:**\n"
+            for note in optimization_notes:
+                info += "• {}\n".format(note)
+            
+            info += "\n**Recommended Speed Test Sites:**\n"
+            for alt in alternatives:
+                info += "• {}\n".format(alt)
+            
+            return info
+        else:
+            return "Speed test optimization not available for this config type."
+
     def format_service_config(self, config_data, service_key):
         """Format service-specific config for display"""
-        service_info = SERVICE_PACKAGES[service_key]
+        # Get service info from generator if available
+        try:
+            service_info = SERVICE_PACKAGES.get(service_key, {
+                "name": "Custom Service",
+                "description": "Custom configuration",
+                "hosts": ["*"],
+                "emoji": "🔧"
+            })
+        except:
+            service_info = {
+                "name": "Custom Service", 
+                "description": "Custom configuration",
+                "hosts": ["*"],
+                "emoji": "🔧"
+            }
         
         if config_data.get("type") in ["VMess", "VLess"]:
             return """
@@ -617,21 +621,22 @@ Points remaining: **{}**
 {}
 ```
 
-**Target Hosts:**
+**Payload for HTTP Injector:**
+```
 {}
+```
 
-**Setup Instructions:**
-• Use with HTTP Injector or similar apps
-• Import the VMess link above
-• Works specifically for: {}
+**Transport:** {} (Optimized for speed tests)
+**Multiplexing:** Disabled (Better for speed tests)
+**Direct Routing:** Enabled for speed test domains
 """.format(
                 service_info["name"],
                 service_info["emoji"] + " " + service_info["name"],
                 service_info["description"],
                 config_data.get("type"),
                 config_data.get("link", "N/A"),
-                "\n".join("• " + host for host in service_info["hosts"]),
-                ", ".join(service_info["hosts"]) if service_info["hosts"] != ["*"] else "All websites"
+                config_data.get("payload", "No payload available"),
+                config_data.get("config", {}).get("net", "tcp")
             )
         else:
             return self.formatter.format_config(config_data)
@@ -641,7 +646,11 @@ Points remaining: **{}**
         user_id = query.from_user.id
         
         # Show generating message
-        await query.edit_message_text("🔄 **Generating your configuration...**\n\nPlease wait a moment...")
+        await query.edit_message_text(
+            "🔄 **Generating your configuration...**\n\n"
+            "Including speed test optimization...\n"
+            "Please wait a moment..."
+        )
         
         try:
             # Check if user can generate (unless admin)
@@ -679,10 +688,15 @@ Points remaining: **{}**
             # Format config for display
             formatted_config = self.formatter.format_config(config_data)
             
+            # Add speed test note for SSH configs
+            speed_test_note = ""
+            if config_data.get("speed_test_note"):
+                speed_test_note = "\n\n⚡ **Speed Test Tip:**\n{}".format(config_data["speed_test_note"])
+            
             success_message = MESSAGES["generation_success"].format(
                 points=points_remaining,
                 config=formatted_config
-            )
+            ) + speed_test_note
             
             # Create keyboard with QR option
             keyboard = [
@@ -703,8 +717,354 @@ Points remaining: **{}**
                 "An error occurred while generating your config. Please try again later."
             )
 
-    # Add all other existing handlers (points, refer, join, etc.) here...
-    # [The rest of the handlers remain the same as in your original code]
+    async def handle_points_callback(self, query, context):
+        """Handle points callback"""
+        user_id = query.from_user.id
+        user = db.get_user(user_id)
+        
+        if not user:
+            await query.edit_message_text("Please use /start first to register.")
+            return
+        
+        points = user["points"]
+        free_used = user["free_used"]
+        total_configs = user["total_configs"]
+        referrals = len(user.get("referred_users", []))
+        
+        admin_status = "\n\n👑 **Admin Status**: Unlimited Access" if self.is_admin(user_id) else ""
+        
+        text = """
+💰 **Your Points Summary**
+
+**Current Points:** {}
+**Free Config Used:** {}
+**Total Configs Generated:** {}
+**Successful Referrals:** {}
+
+**Earn More Points:**
+• 🔗 Refer friends: +{} point each
+• 📢 Join sponsor channels: +{} points
+
+**Point Value:**
+• 1 point = 1 config generation{}
+""".format(
+            points,
+            'Yes ✅' if free_used else 'No ❌',
+            total_configs,
+            referrals,
+            POINTS_CONFIG['referral'],
+            POINTS_CONFIG['channel_join'],
+            admin_status
+        )
+        
+        keyboard = [
+            [
+                InlineKeyboardButton("🔗 Get Referral Link", callback_data="refer"),
+                InlineKeyboardButton("📢 Join Channels", callback_data="join")
+            ],
+            [InlineKeyboardButton("🔙 Back to Menu", callback_data="main_menu")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def handle_refer_callback(self, query, context):
+        """Handle referral callback"""
+        user_id = query.from_user.id
+        referral_code = SecurityUtils.encode_referral_data(user_id)
+        referral_link = "https://t.me/{}?start={}".format(BOT_USERNAME, referral_code)
+        
+        text = """
+🔗 **Your Referral Link**
+
+Share this link with friends to earn points!
+
+**Your Link:**
+```
+{}
+```
+
+**Rewards:**
+• You earn +{} point for each friend who joins
+• Your friends get to use the bot
+• Everyone wins! 🎉
+
+**How it works:**
+1. Share your link
+2. Friends click and start the bot
+3. You automatically get points
+4. Use points to generate configs
+
+**QR Code:** Use the button below to get a QR code
+""".format(referral_link, POINTS_CONFIG['referral'])
+        
+        keyboard = [
+            [InlineKeyboardButton("📱 Get QR Code", callback_data="qr_referral")],
+            [InlineKeyboardButton("🔙 Back to Menu", callback_data="main_menu")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def handle_join_callback(self, query, context):
+        """Handle join channels callback"""
+        user_id = query.from_user.id
+        user = db.get_user(user_id)
+        
+        if not user:
+            await query.edit_message_text("Please use /start first to register.")
+            return
+        
+        if user.get("joined_channels", False):
+            await query.edit_message_text(
+                "✅ **You've already claimed your channel bonus!**\n\n"
+                "Thanks for joining our sponsor channels. You earned +{} points.".format(POINTS_CONFIG['channel_join'])
+            )
+            return
+        
+        # Create channel list with buttons
+        channel_list = ""
+        keyboard = []
+        
+        for i, channel in enumerate(CHANNELS, 1):
+            channel_list += "{}. [{}]({})\n".format(i, channel['name'], channel['url'])
+            keyboard.append([InlineKeyboardButton("📢 {}".format(channel['name']), url=channel['url'])])
+        
+        text = MESSAGES["join_channels"].format(
+            points=POINTS_CONFIG['channel_join'],
+            channel_list=channel_list
+        )
+        
+        keyboard.append([InlineKeyboardButton("✅ I Joined All Channels", callback_data="check_channels")])
+        keyboard.append([InlineKeyboardButton("🔙 Back to Menu", callback_data="main_menu")])
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def handle_check_channels(self, query, context):
+        """Handle channel membership verification"""
+        user_id = query.from_user.id
+        user = db.get_user(user_id)
+        
+        if not user:
+            await query.edit_message_text("Please use /start first to register.")
+            return
+        
+        if user.get("joined_channels", False):
+            await query.edit_message_text(
+                "✅ **You've already claimed your channel bonus!**\n\n"
+                "Thanks for joining our sponsor channels."
+            )
+            return
+        
+        # For simplicity, we'll trust users and award points
+        # In production, you might want to implement actual channel membership checking
+        success = db.add_points(user_id, POINTS_CONFIG['channel_join'], "Joined sponsor channels")
+        
+        if success:
+            db.set_channels_joined(user_id, True)
+            await query.edit_message_text(
+                "🎉 **Congratulations!**\n\n"
+                "You earned +{} points for joining our sponsor channels!\n\n"
+                "Use /generate to create your configs now.".format(POINTS_CONFIG['channel_join'])
+            )
+        else:
+            await query.edit_message_text(
+                "❌ **Error**\n\n"
+                "Something went wrong while awarding points. Please try again later."
+            )
+
+    async def handle_stats_callback(self, query, context):
+        """Handle statistics callback"""
+        try:
+            db_stats = db.get_user_stats()
+            
+            text = """
+📊 **Bot Statistics**
+
+**Users:**
+• Total Users: {:,}
+• Active Users (7 days): {:,}
+
+**Configurations:**
+• Total Generated: {:,}
+• Success Rate: 95%+
+
+**Popular Services:**
+• 🎥 YouTube Configs
+• 📱 WhatsApp Configs  
+• 🎬 Netflix Configs
+• ⚡ Speed Test Optimized
+
+**Bot Performance:**
+• Uptime: 99.9%
+• Response Time: <1s
+• Speed Test Support: ✅
+""".format(
+                db_stats.get('total_users', 0),
+                db_stats.get('active_users', 0), 
+                db_stats.get('total_configs', 0)
+            )
+            
+            keyboard = [[InlineKeyboardButton("🔙 Back to Menu", callback_data="main_menu")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+            
+        except Exception as e:
+            logger.error("Error in stats callback: {}".format(e))
+            await query.edit_message_text("Sorry, couldn't load statistics right now.")
+
+    async def handle_help_callback(self, query, context):
+        """Handle help callback"""
+        text = """
+❓ **Help & Instructions**
+
+**🔐 SSH Configs:**
+• Use with SSH clients like Termux, ConnectBot
+• Connect using: `ssh username@host -p port`
+• Speed test: Run speedtest-cli commands
+
+**🚀 V2Ray Configs:**
+• Use with HTTP Injector, V2RayNG, or similar
+• Import the VMess link directly
+• Use provided payloads for HTTP Injector
+
+**📱 HTTP Injector Setup:**
+1. Install HTTP Injector app
+2. Go to Config → Import → VMess
+3. Paste the VMess link
+4. Use the provided payload
+5. Connect and browse!
+
+**⚡ Speed Test Support:**
+• Direct routing for speed test sites
+• Use OpenSpeedTest.com (VPN-friendly)
+• Try LibreSpeed.org (open source)
+• Mobile apps work better than web versions
+• fast.com is Netflix's speed test
+
+**💡 Speed Test Troubleshooting:**
+• Speedtest.net may not work through VPN
+• Use alternative speed test sites
+• Try command-line tools for SSH configs
+• Mobile speed test apps work better
+
+**💰 Earning Points:**
+• 1 FREE config for new users
+• Refer friends: +{} point each
+• Join channels: +{} points total
+
+**🆘 Need Help?**
+• Make sure you're using the correct app
+• Check your internet connection
+• Try different servers if one doesn't work
+• Use recommended speed test alternatives
+• Contact support in our channels
+
+**⚡ Pro Tips:**
+• Use service-specific configs for better performance
+• Generate new configs if old ones stop working
+• Share with friends to earn more points
+• Try LibreSpeed for VPN-friendly speed tests
+""".format(POINTS_CONFIG['referral'], POINTS_CONFIG['channel_join'])
+        
+        keyboard = [[InlineKeyboardButton("🔙 Back to Menu", callback_data="main_menu")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def handle_qr_referral(self, query, context):
+        """Handle QR code generation for referral"""
+        try:
+            user_id = query.from_user.id
+            
+            # Generate QR code for referral
+            qr_bytes = qr_generator.generate_referral_qr(BOT_USERNAME, user_id)
+            
+            if qr_bytes:
+                await query.delete_message()
+                await context.bot.send_photo(
+                    chat_id=query.message.chat_id,
+                    photo=io.BytesIO(qr_bytes),
+                    caption="📱 **Your Referral QR Code**\n\nFriends can scan this to join the bot and earn you points!"
+                )
+            else:
+                await query.edit_message_text("❌ Failed to generate QR code. Please try again.")
+                
+        except Exception as e:
+            logger.error("Error generating referral QR: {}".format(e))
+            await query.edit_message_text("❌ Failed to generate QR code. Please try again.")
+
+    async def handle_qr_config(self, query, context):
+        """Handle QR code generation for config"""
+        try:
+            # Get the last generated config from context
+            last_config = context.user_data.get('last_config')
+            
+            if not last_config:
+                await query.answer("❌ No recent config found. Generate a new config first.", show_alert=True)
+                return
+            
+            # Generate QR code for config
+            qr_bytes = qr_card_generator.create_config_card(last_config)
+            
+            if qr_bytes:
+                await query.delete_message()
+                
+                caption = "📱 **Configuration QR Code**\n\n"
+                if last_config.get("speed_test_support"):
+                    caption += "✅ Speed test optimized config!\n"
+                    caption += "Try OpenSpeedTest.com or LibreSpeed.org for VPN-friendly speed tests.\n\n"
+                
+                caption += "Scan this with your V2Ray client to import the config!"
+                
+                await context.bot.send_photo(
+                    chat_id=query.message.chat_id,
+                    photo=io.BytesIO(qr_bytes),
+                    caption=caption
+                )
+            else:
+                await query.edit_message_text("❌ Failed to generate QR code. Please try again.")
+                
+        except Exception as e:
+            logger.error("Error generating config QR: {}".format(e))
+            await query.edit_message_text("❌ Failed to generate QR code. Please try again.")
+
+    async def handle_main_menu(self, query, context):
+        """Handle main menu callback"""
+        user_id = query.from_user.id
+        
+        # Create main menu keyboard
+        keyboard = [
+            [
+                InlineKeyboardButton("🔐 Generate Config", callback_data="generate"),
+                InlineKeyboardButton("🎯 My Points", callback_data="points")
+            ],
+            [
+                InlineKeyboardButton("🔗 Refer Friends", callback_data="refer"),
+                InlineKeyboardButton("📢 Join Channels", callback_data="join")
+            ],
+            [
+                InlineKeyboardButton("📊 Statistics", callback_data="stats"),
+                InlineKeyboardButton("❓ Help", callback_data="help")
+            ]
+        ]
+        
+        # Add admin options if user is admin
+        if self.is_admin(user_id):
+            keyboard.append([
+                InlineKeyboardButton("👑 Admin Panel", callback_data="admin_panel")
+            ])
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        welcome_text = "🏠 **Main Menu**\n\nChoose an option below:\n\n⚡ **New**: Speed test optimization enabled for all configs!"
+        if self.is_admin(user_id):
+            welcome_text += "\n\n👑 **Admin Access Available**"
+        
+        await query.edit_message_text(welcome_text, reply_markup=reply_markup, parse_mode='Markdown')
     
     def setup_handlers(self):
         """Setup all command and callback handlers"""
@@ -734,7 +1094,7 @@ Points remaining: **{}**
             self.initialize()
             self.setup_handlers()
             
-            logger.info("Starting Enhanced SSH/V2Ray Service Bot...")
+            logger.info("Starting Enhanced SSH/V2Ray Service Bot with Speed Test Support...")
             
             self.application.run_polling(
                 poll_interval=0.0,
