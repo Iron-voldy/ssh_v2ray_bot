@@ -1,9 +1,24 @@
-python-telegram-bot==20.7
+# Core Telegram Bot Dependencies - Final Fix for Python 3.13
+python-telegram-bot==21.0.1
 pymongo==4.6.1
 requests==2.31.0
 beautifulsoup4==4.12.2
-qrcode[pil]==7.4.2
-Pillow>=9.0.0
 python-dotenv==1.0.0
-aiohttp==3.9.1
 certifi>=2023.7.22
+urllib3>=1.26.0
+
+# Image Processing and QR Codes
+Pillow>=10.0.0
+qrcode[pil]==7.4.2
+
+# HTML Parsing
+lxml>=4.9.0
+
+# HTTP client - Let python-telegram-bot handle httpx version
+# httpx will be installed automatically with compatible version
+
+# Security and encryption
+cryptography>=41.0.0
+
+# Additional dependencies for stability
+typing-extensions>=4.0.0
