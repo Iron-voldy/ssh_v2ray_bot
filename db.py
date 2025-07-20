@@ -1,5 +1,5 @@
 from pymongo import MongoClient
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import logging
 from typing import Optional, Dict, List
 from config import MONGO_URI, DB_NAME
@@ -29,18 +29,19 @@ class Database:
     def add_user(self, user_id: int, username: str = None, referrer_id: int = None) -> bool:
         """Add new user to database"""
         try:
+            from config import POINTS_CONFIG
             user_data = {
                 "user_id": user_id,
                 "username": username,
-                "points": 0,
+                "points": POINTS_CONFIG["initial_coins"],  # Give 10 coins to start
                 "referrer_id": referrer_id,
                 "referred_users": [],
                 "free_used": False,
                 "joined_channels": False,
                 "total_configs": 0,
                 "last_config": None,
-                "created_at": datetime.utcnow(),
-                "last_active": datetime.utcnow()
+                "created_at": datetime.now(timezone.utc),
+                "last_active": datetime.now(timezone.utc)
             }
             
             # Check if user exists
@@ -68,7 +69,7 @@ class Database:
                 # Update last active
                 self.users.update_one(
                     {"user_id": user_id},
-                    {"$set": {"last_active": datetime.utcnow()}}
+                    {"$set": {"last_active": datetime.now(timezone.utc)}}
                 )
             return user
         except Exception as e:
@@ -82,7 +83,7 @@ class Database:
                 {"user_id": user_id},
                 {
                     "$inc": {"points": points},
-                    "$set": {"last_active": datetime.utcnow()}
+                    "$set": {"last_active": datetime.now(timezone.utc)}
                 }
             )
             
@@ -93,6 +94,55 @@ class Database:
             
         except Exception as e:
             logger.error(f"Error adding points to user {user_id}: {e}")
+            return False
+
+    def set_points(self, user_id: int, points: int, reason: str = "Admin action") -> bool:
+        """Set exact points for user (admin function)"""
+        try:
+            result = self.users.update_one(
+                {"user_id": user_id},
+                {
+                    "$set": {
+                        "points": points,
+                        "last_active": datetime.now(timezone.utc)
+                    }
+                }
+            )
+            
+            if result.modified_count > 0:
+                logger.info(f"Set {points} points for user {user_id} - {reason}")
+                return True
+            return False
+            
+        except Exception as e:
+            logger.error(f"Error setting points for user {user_id}: {e}")
+            return False
+
+    def give_admin_credits(self, admin_id: int, amount: int = 1000) -> bool:
+        """Give admin user testing credits"""
+        try:
+            # First ensure admin user exists
+            if not self.users.find_one({"user_id": admin_id}):
+                self.add_user(admin_id, "admin", None)
+            
+            # Give admin credits
+            result = self.users.update_one(
+                {"user_id": admin_id},
+                {
+                    "$set": {
+                        "points": amount,
+                        "last_active": datetime.now(timezone.utc)
+                    }
+                }
+            )
+            
+            if result.modified_count > 0:
+                logger.info(f"Gave admin {admin_id} testing credits: {amount}")
+                return True
+            return False
+            
+        except Exception as e:
+            logger.error(f"Error giving admin credits to {admin_id}: {e}")
             return False
 
     def deduct_points(self, user_id: int, points: int) -> bool:
@@ -106,7 +156,7 @@ class Database:
                 {"user_id": user_id},
                 {
                     "$inc": {"points": -points},
-                    "$set": {"last_active": datetime.utcnow()}
+                    "$set": {"last_active": datetime.now(timezone.utc)}
                 }
             )
             
@@ -131,6 +181,7 @@ class Database:
     def add_referral(self, referrer_id: int, referred_id: int) -> bool:
         """Add referral and award points"""
         try:
+            from config import POINTS_CONFIG
             # Check if referral already exists
             referrer = self.users.find_one({"user_id": referrer_id})
             if not referrer or referred_id in referrer.get("referred_users", []):
@@ -141,7 +192,7 @@ class Database:
                 {"user_id": referrer_id},
                 {
                     "$push": {"referred_users": referred_id},
-                    "$inc": {"points": 1}
+                    "$inc": {"points": POINTS_CONFIG["referral"]}  # Award 3 points
                 }
             )
             
@@ -173,7 +224,7 @@ class Database:
                 "user_id": user_id,
                 "config_type": config_type,
                 "config_data": config_data,
-                "created_at": datetime.utcnow()
+                "created_at": datetime.now(timezone.utc)
             }
             
             self.configs.insert_one(config_entry)
@@ -183,7 +234,7 @@ class Database:
                 {"user_id": user_id},
                 {
                     "$inc": {"total_configs": 1},
-                    "$set": {"last_config": datetime.utcnow()}
+                    "$set": {"last_config": datetime.now(timezone.utc)}
                 }
             )
             
@@ -209,7 +260,7 @@ class Database:
         try:
             total_users = self.users.count_documents({})
             active_users = self.users.count_documents({
-                "last_active": {"$gte": datetime.utcnow() - timedelta(days=7)}
+                "last_active": {"$gte": datetime.now(timezone.utc) - timedelta(days=7)}
             })
             total_configs = self.configs.count_documents({})
             
@@ -225,17 +276,15 @@ class Database:
     def can_generate_config(self, user_id: int) -> Dict[str, any]:
         """Check if user can generate config"""
         try:
+            from config import POINTS_CONFIG
             user = self.get_user(user_id)
             if not user:
                 return {"can_generate": False, "reason": "User not found"}
                 
-            # Check free config
-            if not user["free_used"]:
-                return {"can_generate": True, "use_free": True, "points_after": user["points"]}
-                
-            # Check points
-            if user["points"] >= 1:
-                return {"can_generate": True, "use_free": False, "points_after": user["points"] - 1}
+            # Check points (no free configs, all cost 5 coins)
+            cost = POINTS_CONFIG["config_cost"]
+            if user["points"] >= cost:
+                return {"can_generate": True, "use_free": False, "points_after": user["points"] - cost}
                 
             return {
                 "can_generate": False, 

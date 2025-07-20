@@ -7,7 +7,7 @@ import base64
 import re
 import logging
 from typing import Dict, Optional, List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import time
 import uuid
 import urllib3
@@ -215,8 +215,8 @@ class SSHGenerator(ConfigGenerator):
                                 "port": server['port'],
                                 "username": username,
                                 "password": password,
-                                "created_at": datetime.utcnow().isoformat(),
-                                "expires_at": (datetime.utcnow() + timedelta(days=7)).isoformat(),
+                                "created_at": datetime.now(timezone.utc).isoformat(),
+                                "expires_at": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat(),
                                 "server": server['code'],
                                 "provider": "SpeedSSH",
                                 "speed_test_note": "SSH Speed Test Commands:\n• speedtest-cli\n• curl -s https://raw.githubusercontent.com/sivel/speedtest-cli/master/speedtest.py | python3\n• wget -O /dev/null http://speedtest.wdc01.softlayer.com/downloads/test100.zip"
@@ -268,8 +268,8 @@ class SSHGenerator(ConfigGenerator):
                             "port": server['port'],
                             "username": username,
                             "password": password,
-                            "created_at": datetime.utcnow().isoformat(),
-                            "expires_at": (datetime.utcnow() + timedelta(days=7)).isoformat(),
+                            "created_at": datetime.now(timezone.utc).isoformat(),
+                            "expires_at": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat(),
                             "server": server['code'],
                             "provider": "FastSSH",
                             "speed_test_note": "SSH Speed Test Commands:\n• speedtest-cli\n• curl -s https://raw.githubusercontent.com/sivel/speedtest-cli/master/speedtest.py | python3"
@@ -316,8 +316,8 @@ class SSHGenerator(ConfigGenerator):
                             "port": server['port'],
                             "username": username,
                             "password": password,
-                            "created_at": datetime.utcnow().isoformat(),
-                            "expires_at": (datetime.utcnow() + timedelta(days=7)).isoformat(),
+                            "created_at": datetime.now(timezone.utc).isoformat(),
+                            "expires_at": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat(),
                             "server": server['code'],
                             "provider": "OpenTunnel",
                             "speed_test_note": "SSH Speed Test Commands:\n• speedtest-cli\n• curl -s https://raw.githubusercontent.com/sivel/speedtest-cli/master/speedtest.py | python3"
@@ -364,8 +364,8 @@ class SSHGenerator(ConfigGenerator):
             "port": 22,
             "username": username,
             "password": password,
-            "created_at": datetime.utcnow().isoformat(),
-            "expires_at": (datetime.utcnow() + timedelta(hours=24)).isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "expires_at": (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat(),
             "server": "demo",
             "provider": "Demo",
             "note": "Demo config - For testing purposes only",
@@ -477,8 +477,8 @@ class V2RayGenerator(ConfigGenerator):
                         "host": service_config["host"],
                         "sni": service_config["sni"],
                         "v2ray_config": v2ray_client_config,
-                        "created_at": datetime.utcnow().isoformat(),
-                        "expires_at": (datetime.utcnow() + timedelta(days=1)).isoformat(),
+                        "created_at": datetime.now(timezone.utc).isoformat(),
+                        "expires_at": (datetime.now(timezone.utc) + timedelta(days=1)).isoformat(),
                         "injector_instructions": "Import VMess link in HTTP Injector and use provided payload",
                         "speed_test_support": True,
                         "speed_test_alternatives": [
@@ -632,8 +632,8 @@ class V2RayGenerator(ConfigGenerator):
             "port": "443",
             "host": service_config["host"],
             "sni": service_config["sni"],
-            "created_at": datetime.utcnow().isoformat(),
-            "expires_at": (datetime.utcnow() + timedelta(hours=24)).isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "expires_at": (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat(),
             "injector_instructions": "Demo config - Import VMess link in HTTP Injector",
             "speed_test_support": True,
             "speed_test_alternatives": [

@@ -13,7 +13,7 @@ BOT_TOKEN = os.getenv("BOT_TOKEN", "7802887189:AAFFMqLcNPYT2oX7s0DieOGdmqFWk7M1V
 BOT_USERNAME = os.getenv("BOT_USERNAME", "Genarate_ssh_bot")
 
 # Database Configuration
-MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://tharu:20020224Ha@sshbot.gxhlp2h.mongodb.net/?retryWrites=true&w=majority&appName=sshbot")
+MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://hasindutwm:20020224Ha@cluster0.dtfgi1z.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
 DB_NAME = os.getenv("DB_NAME", "sshbot")
 
 # Admin Configuration
@@ -39,10 +39,11 @@ CHANNELS = [
 
 # Points Configuration
 POINTS_CONFIG = {
-    "referral": 1,          # Points for each successful referral
-    "channel_join": 2,      # Points for joining all channels
-    "daily_bonus": 1,       # Daily bonus points (future feature)
-    "config_cost": 1        # Points required to generate config
+    "initial_coins": 10,     # Initial coins for new users
+    "referral": 3,           # Points for each successful referral
+    "channel_join": 5,       # Points for joining all channels
+    "daily_bonus": 1,        # Daily bonus points (future feature)
+    "config_cost": 5         # Points required to generate config
 }
 
 # Provider URLs - Updated with more reliable providers
@@ -103,41 +104,38 @@ MESSAGES = {
     "welcome": """
 🔐 **SSH/V2Ray Config Generator Bot**
 
-Welcome! You get **1 FREE** config generation.
+Welcome! You get **{initial_coins} FREE coins** to start!
 
-⚡ **NEW FEATURES:**
-• Speed test optimization for all configs
-• Service-specific V2Ray packages
-• HTTP Injector compatibility
-• QR code generation
+⚡ **Available File Types:**
+• 🔐 SSH - Secure Shell tunneling
+• 🚀 V2Ray - Advanced proxy configurations
+• 📦 Service Packages: YouTube, WhatsApp, Zoom, Netflix & more
 
-🎯 **How to earn more points:**
-• 🔗 Refer friends: +{referral} point each
-• 📢 Join sponsor channels: +{channel_join} points
+💰 **Credit System:**
+• Each file costs **{config_cost} coins**
+• New users get **{initial_coins} coins** FREE
 
-**Available Configs:**
-• 🔐 SSH - Secure Shell with speed test CLI
-• 🚀 V2Ray - Service-specific proxies
-• 📦 Package Types: YouTube, WhatsApp, Zoom, Netflix & more
+🎯 **Earn More Coins:**
+• 🔗 Refer friends: +{referral} coins each
+• 📢 Join both channels: +{channel_join} coins
 
 **Commands:**
-/generate - Generate SSH/V2Ray config
-/points - Check your points
-/admin_test - Admin unlimited testing
+/generate - Generate SSH/V2Ray file
+/points - Check your coins
 /help - Show help
 """.format(**POINTS_CONFIG),
     
     "insufficient_points": """
-❌ **Insufficient Points!**
+❌ **Insufficient Coins!**
 
-You need **{cost}** point(s) to generate a config.
-Current points: **{current}**
+You need **{cost}** coins to generate a file.
+Current coins: **{current}**
 
-💡 **Earn points by:**
-• 🔗 Referring friends: +{referral} points each
-• 📢 Joining sponsor channels: +{channel_join} points
+💡 **Earn coins by:**
+• 🔗 Referring friends: +{referral} coins each
+• 📢 Joining both sponsor channels: +{channel_join} coins
 
-Use the buttons below to earn more points!
+Use the buttons below to earn more coins!
 """,
     
     "join_channels": """
@@ -180,11 +178,19 @@ Welcome, Admin! You have unlimited access to all bot features:
 ✅ **Admin Privileges:**
 • Unlimited config generation
 • Test all service packages
+• Credit management system
+• User management tools
 • Access detailed statistics
 • Speed test optimization enabled
 • No rate limiting
 
-Use /admin_test to test any service package unlimited times.
+**Admin Commands:**
+/admin_credits - Get 1000 testing credits
+/give_credits <user_id> <amount> - Give credits to any user
+/check_user <user_id> - View user details
+/admin_test - Test service packages
+
+Use the Admin Panel button below for quick access!
 """,
 
     "help": """

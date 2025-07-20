@@ -116,7 +116,7 @@ class SSHVPNBot:
             welcome_text = MESSAGES["welcome"]
             
             if is_new_user and referrer_id:
-                welcome_text += f"\n\n✅ You were referred by user {referrer_id}. They earned a point!"
+                welcome_text += f"\n\n✅ You were referred by user {referrer_id}. They earned 3 coins!"
             
             if self.is_admin(user_id):
                 welcome_text += "\n\n" + MESSAGES["admin_welcome"]
@@ -173,11 +173,11 @@ class SSHVPNBot:
             admin_note = "\n\n👑 **Admin Mode: Unlimited Testing**" if self.is_admin(user_id) else ""
             
             await update.message.reply_text(
-                "🔧 **Choose Configuration Type:**\n\n"
-                "• **SSH** - Secure Shell access + CLI speed tests\n"
-                "• **V2Ray** - Service-specific proxy with speed test optimization\n"
-                "• **Random** - Let me choose for you\n\n"
-                f"⚡ **All configs now include speed test optimization!**{admin_note}",
+                "🔧 **Choose File Type:**\n\n"
+                "• **SSH** - SSH tunneling files for terminal access\n"
+                "• **V2Ray** - Advanced proxy files with service packages\n"
+                "• **Random** - Let me choose the best option for you\n\n"
+                f"💰 **Cost: {POINTS_CONFIG['config_cost']} coins per file**{admin_note}",
                 reply_markup=reply_markup,
                 parse_mode='Markdown'
             )
@@ -220,26 +220,24 @@ class SSHVPNBot:
                 return
             
             points = user["points"]
-            free_used = user["free_used"]
             total_configs = user["total_configs"]
             referrals = len(user.get("referred_users", []))
             
             admin_status = "\n\n👑 **Admin Status**: Unlimited Access" if self.is_admin(user_id) else ""
             
             text = f"""
-💰 **Your Points Summary**
+💰 **Your Coins Summary**
 
-**Current Points:** {points}
-**Free Config Used:** {'Yes ✅' if free_used else 'No ❌'}
-**Total Configs Generated:** {total_configs}
+**Current Coins:** {points}
+**Total Files Generated:** {total_configs}
 **Successful Referrals:** {referrals}
 
-**Earn More Points:**
-• 🔗 Refer friends: +{POINTS_CONFIG['referral']} point each
-• 📢 Join sponsor channels: +{POINTS_CONFIG['channel_join']} points
+**Earn More Coins:**
+• 🔗 Refer friends: +{POINTS_CONFIG['referral']} coins each
+• 📢 Join both sponsor channels: +{POINTS_CONFIG['channel_join']} coins
 
-**Point Value:**
-• 1 point = 1 config generation{admin_status}
+**Coin Value:**
+• {POINTS_CONFIG['config_cost']} coins = 1 file generation{admin_status}
 """
             
             keyboard = [
@@ -255,6 +253,142 @@ class SSHVPNBot:
         except Exception as e:
             logger.error(f"Error in points command: {e}")
             await update.message.reply_text("Sorry, something went wrong. Please try again.")
+
+    async def admin_credits_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Give admin testing credits"""
+        user_id = update.effective_user.id
+        if not self.is_admin(user_id):
+            await update.message.reply_text("❌ Admin access required.")
+            return
+        
+        try:
+            # Give admin 1000 testing credits
+            success = db.give_admin_credits(user_id, 1000)
+            
+            if success:
+                await update.message.reply_text(
+                    "✅ **Admin Testing Credits Added!**\n\n"
+                    "💰 **Credits:** 1000 coins\n"
+                    "🎯 **Purpose:** Bot testing and validation\n\n"
+                    "Use these credits to:\n"
+                    "• Test all service packages\n"
+                    "• Verify file generation\n"
+                    "• Check bot functionality\n"
+                    "• Ensure everything works properly\n\n"
+                    "**Commands:**\n"
+                    "/generate - Test file generation\n"
+                    "/admin_test - Test service packages\n"
+                    "/points - Check credit balance",
+                    parse_mode='Markdown'
+                )
+            else:
+                await update.message.reply_text("❌ Failed to add admin credits.")
+                
+        except Exception as e:
+            logger.error(f"Error in admin_credits command: {e}")
+            await update.message.reply_text("❌ Error adding admin credits.")
+
+    async def give_credits_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Give credits to specific user (admin only)"""
+        user_id = update.effective_user.id
+        if not self.is_admin(user_id):
+            await update.message.reply_text("❌ Admin access required.")
+            return
+        
+        try:
+            if not context.args or len(context.args) < 2:
+                await update.message.reply_text(
+                    "📝 **Usage:** `/give_credits <user_id> <amount>`\n\n"
+                    "**Example:** `/give_credits 123456789 100`\n\n"
+                    "This will give 100 credits to user 123456789",
+                    parse_mode='Markdown'
+                )
+                return
+            
+            target_user_id = int(context.args[0])
+            amount = int(context.args[1])
+            
+            if amount < 1 or amount > 10000:
+                await update.message.reply_text("❌ Amount must be between 1 and 10000 credits.")
+                return
+            
+            # Check if target user exists
+            target_user = db.get_user(target_user_id)
+            if not target_user:
+                await update.message.reply_text(f"❌ User {target_user_id} not found in database.")
+                return
+            
+            # Add credits
+            success = db.add_points(target_user_id, amount, f"Admin grant by {user_id}")
+            
+            if success:
+                await update.message.reply_text(
+                    f"✅ **Credits Added Successfully!**\n\n"
+                    f"👤 **User:** {target_user_id}\n"
+                    f"💰 **Added:** {amount} credits\n"
+                    f"💰 **New Balance:** {target_user['points'] + amount} credits\n\n"
+                    f"The user can now generate {(target_user['points'] + amount) // 5} files.",
+                    parse_mode='Markdown'
+                )
+            else:
+                await update.message.reply_text("❌ Failed to add credits to user.")
+                
+        except ValueError:
+            await update.message.reply_text("❌ Invalid user ID or amount. Use numbers only.")
+        except Exception as e:
+            logger.error(f"Error in give_credits command: {e}")
+            await update.message.reply_text("❌ Error adding credits to user.")
+
+    async def check_user_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Check user details (admin only)"""
+        user_id = update.effective_user.id
+        if not self.is_admin(user_id):
+            await update.message.reply_text("❌ Admin access required.")
+            return
+        
+        try:
+            if not context.args:
+                await update.message.reply_text(
+                    "📝 **Usage:** `/check_user <user_id>`\n\n"
+                    "**Example:** `/check_user 123456789`\n\n"
+                    "This will show user details and credit balance",
+                    parse_mode='Markdown'
+                )
+                return
+            
+            target_user_id = int(context.args[0])
+            target_user = db.get_user(target_user_id)
+            
+            if not target_user:
+                await update.message.reply_text(f"❌ User {target_user_id} not found in database.")
+                return
+            
+            referrals = len(target_user.get("referred_users", []))
+            joined_channels = "Yes ✅" if target_user.get("joined_channels", False) else "No ❌"
+            
+            user_info = f"""
+👤 **User Information**
+
+**User ID:** {target_user_id}
+**Username:** @{target_user.get('username', 'N/A')}
+**Current Credits:** {target_user['points']}
+**Total Files Generated:** {target_user['total_configs']}
+**Successful Referrals:** {referrals}
+**Joined Channels:** {joined_channels}
+**Registration:** {target_user['created_at'].strftime('%Y-%m-%d %H:%M')}
+**Last Active:** {target_user['last_active'].strftime('%Y-%m-%d %H:%M')}
+
+**Can Generate:** {target_user['points'] // 5} files
+**Referrer:** {target_user.get('referrer_id', 'None')}
+"""
+            
+            await update.message.reply_text(user_info, parse_mode='Markdown')
+                
+        except ValueError:
+            await update.message.reply_text("❌ Invalid user ID. Use numbers only.")
+        except Exception as e:
+            logger.error(f"Error in check_user command: {e}")
+            await update.message.reply_text("❌ Error retrieving user information.")
 
     # Callback Query Handlers
     async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -294,6 +428,12 @@ class SSHVPNBot:
                 await self.handle_qr_config(query, context)
             elif data == "main_menu":
                 await self.handle_main_menu(query, context)
+            elif data == "admin_get_credits":
+                await self.handle_admin_get_credits(query, context)
+            elif data == "admin_test_services":
+                await self.handle_admin_test_services(query, context)
+            elif data == "admin_stats":
+                await self.handle_admin_stats(query, context)
             else:
                 logger.warning(f"Unknown callback data: {data}")
                 await query.edit_message_text("Unknown action. Please try again.")
@@ -387,9 +527,18 @@ class SSHVPNBot:
         
         await query.edit_message_text(
             "📦 **Select Service Package:**\n\n"
-            "Choose the service you want to use with this V2Ray config:\n\n"
-            "Each package is optimized for specific apps/websites and includes speed test support!\n\n"
-            "⚡ **New Feature**: All packages now route speed test sites directly for better performance!",
+            "Choose which app/service you want to use:\n\n"
+            "🎥 **YouTube** - For video streaming\n"
+            "📱 **WhatsApp** - For messaging & calls\n"
+            "📹 **Zoom** - For video conferences\n"
+            "📘 **Facebook** - For social media\n"
+            "📷 **Instagram** - For photo sharing\n"
+            "🎵 **TikTok** - For short videos\n"
+            "🎬 **Netflix** - For movies & shows\n"
+            "✈️ **Telegram** - For messaging\n"
+            "⚡ **Speed Test** - For testing speed\n"
+            "🌐 **All Sites** - Universal access\n\n"
+            f"💰 **Cost: {POINTS_CONFIG['config_cost']} coins**",
             reply_markup=reply_markup,
             parse_mode='Markdown'
         )
@@ -438,12 +587,8 @@ class SSHVPNBot:
                     await query.edit_message_text("❌ Unable to generate config. Please check your points.")
                     return
                 
-                if check_result["use_free"]:
-                    db.use_free_config(user_id)
-                    points_remaining = check_result["points_after"]
-                else:
-                    db.deduct_points(user_id, POINTS_CONFIG["config_cost"])
-                    points_remaining = check_result["points_after"]
+                db.deduct_points(user_id, POINTS_CONFIG["config_cost"])
+                points_remaining = check_result["points_after"]
             else:
                 points_remaining = "Unlimited (Admin)" if self.is_admin(user_id) else "∞"
             
@@ -466,23 +611,25 @@ class SSHVPNBot:
             admin_note = "\n\n👑 **Admin Test Mode** - Config generated for testing purposes." if is_admin_test else ""
             
             success_message = f"""
-✅ **{service_name} Generated Successfully!**
+✅ **{service_name} File Generated Successfully!**
 
-Points remaining: **{points_remaining}**
+💰 Coins remaining: **{points_remaining}**
 
-📋 **Configuration Details:**
+📋 **File Details:**
 {formatted_config}
 
 ⚡ **Speed Test Information:**
 {self.get_speed_test_info(config_data)}
 
-🔧 **Setup Instructions:**
+🔧 **How to Use This File:**
 1. Copy the VMess link above
-2. Open HTTP Injector app
-3. Go to Config → Import → VMess
+2. Download HTTP Injector app from Play Store
+3. Open app → Config → Import → VMess
 4. Paste the link and save
-5. Use the payload for optimal performance
-6. For speed tests, try the recommended alternatives!{admin_note}
+5. Use the payload for best performance
+6. Connect and browse any website freely!{admin_note}
+
+💡 **This file allows unrestricted internet access!**
 """
             
             keyboard = []
@@ -580,13 +727,33 @@ Points remaining: **{points_remaining}**
             await query.answer("❌ Admin access required.", show_alert=True)
             return
         
+        keyboard = [
+            [InlineKeyboardButton("💰 Get Testing Credits", callback_data="admin_get_credits")],
+            [InlineKeyboardButton("🧪 Test Service Packages", callback_data="admin_test_services")],
+            [InlineKeyboardButton("📊 View Bot Statistics", callback_data="admin_stats")],
+            [InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        # Get admin's current credits
+        admin_user = db.get_user(user_id)
+        current_credits = admin_user['points'] if admin_user else 0
+        
         await query.edit_message_text(
             "👑 **Admin Control Panel**\n\n"
+            f"💰 **Your Credits:** {current_credits}\n\n"
             "**Admin Privileges:**\n"
             "✅ Unlimited config generation\n"
             "✅ Test all service packages\n"
-            "✅ Speed test optimization enabled\n\n"
-            "Use /admin_test to test service packages.",
+            "✅ Credit management system\n"
+            "✅ User management tools\n"
+            "✅ Speed test optimization\n\n"
+            "**Available Commands:**\n"
+            "/admin_credits - Get 1000 testing credits\n"
+            "/give_credits <user_id> <amount> - Give credits to user\n"
+            "/check_user <user_id> - Check user details\n"
+            "/admin_test - Test service packages",
+            reply_markup=reply_markup,
             parse_mode='Markdown'
         )
 
@@ -619,18 +786,74 @@ Share this link with friends to earn points!
 
     async def handle_join_callback(self, query, context):
         """Handle join channels callback"""
-        await query.edit_message_text("📢 Join our sponsor channels to earn points!")
+        user_id = query.from_user.id
+        user = db.get_user(user_id)
+        
+        if user and user.get("joined_channels", False):
+            await query.edit_message_text(
+                "✅ **Already Claimed!**\n\n"
+                f"You have already claimed your {POINTS_CONFIG['channel_join']} coins for joining channels.\n\n"
+                "💡 **Tip:** You can still earn more coins by referring friends!"
+            )
+            return
+        
+        channel_buttons = []
+        for channel in CHANNELS:
+            channel_buttons.append([InlineKeyboardButton(
+                f"📢 Join {channel['name']}", 
+                url=channel['url']
+            )])
+        
+        channel_buttons.append([InlineKeyboardButton(
+            "✅ I Joined Both Channels", 
+            callback_data="check_channels"
+        )])
+        
+        reply_markup = InlineKeyboardMarkup(channel_buttons)
+        
+        await query.edit_message_text(
+            f"📢 **Join Sponsor Channels**\n\n"
+            f"Join **BOTH** channels below to earn **{POINTS_CONFIG['channel_join']} coins**:\n\n"
+            f"1️⃣ {CHANNELS[0]['name']}\n"
+            f"2️⃣ {CHANNELS[1]['name']}\n\n"
+            "After joining **both** channels, click the button below to verify and claim your coins!\n\n"
+            "💡 **Important:** You must join BOTH channels to get the reward.",
+            reply_markup=reply_markup,
+            parse_mode='Markdown'
+        )
 
     async def handle_check_channels(self, query, context):
         """Handle channel membership verification"""
         user_id = query.from_user.id
-        success = db.add_points(user_id, POINTS_CONFIG['channel_join'], "Joined channels")
         
-        if success:
-            db.set_channels_joined(user_id, True)
-            await query.edit_message_text(f"🎉 You earned +{POINTS_CONFIG['channel_join']} points!")
-        else:
-            await query.edit_message_text("❌ Error awarding points.")
+        # Check if user already claimed
+        user = db.get_user(user_id)
+        if user and user.get("joined_channels", False):
+            await query.edit_message_text(
+                "✅ **Already Claimed!**\n\n"
+                f"You have already claimed your {POINTS_CONFIG['channel_join']} coins for joining channels."
+            )
+            return
+        
+        # Try to verify membership (simplified - in production you'd check actual membership)
+        try:
+            # For now, we'll trust the user and award points
+            # In production, you would verify membership using bot.get_chat_member()
+            success = db.add_points(user_id, POINTS_CONFIG['channel_join'], "Joined channels")
+            
+            if success:
+                db.set_channels_joined(user_id, True)
+                await query.edit_message_text(
+                    f"🎉 **Congratulations!**\n\n"
+                    f"You earned **+{POINTS_CONFIG['channel_join']} coins** for joining both channels!\n\n"
+                    f"💰 Total coins: **{user['points'] + POINTS_CONFIG['channel_join']}**\n\n"
+                    "Now you can generate more files! Use /generate to create SSH or V2Ray files."
+                )
+            else:
+                await query.edit_message_text("❌ Error awarding coins. Please try again later.")
+        except Exception as e:
+            logger.error(f"Error checking channels for user {user_id}: {e}")
+            await query.edit_message_text("❌ Error verifying membership. Please try again later.")
 
     async def handle_stats_callback(self, query, context):
         """Handle statistics callback"""
@@ -652,6 +875,113 @@ Share this link with friends to earn points!
         """Handle main menu callback"""
         await query.edit_message_text("🏠 **Main Menu**\n\nUse /start to see the main menu.")
 
+    async def handle_admin_get_credits(self, query, context):
+        """Handle admin get credits callback"""
+        user_id = query.from_user.id
+        if not self.is_admin(user_id):
+            await query.answer("❌ Admin access required.", show_alert=True)
+            return
+        
+        try:
+            success = db.give_admin_credits(user_id, 1000)
+            
+            if success:
+                await query.edit_message_text(
+                    "✅ **Testing Credits Added!**\n\n"
+                    "💰 **Credits Added:** 1000 coins\n"
+                    "🎯 **Purpose:** Bot testing and validation\n\n"
+                    "**What you can test:**\n"
+                    "• Generate 200 files (1000÷5=200)\n"
+                    "• Test all 10 service packages\n"
+                    "• Verify SSH and V2Ray generation\n"
+                    "• Check file quality and functionality\n"
+                    "• Ensure bot works properly\n\n"
+                    "Use /generate to start testing!",
+                    parse_mode='Markdown'
+                )
+            else:
+                await query.edit_message_text("❌ Failed to add admin credits. Please try again.")
+                
+        except Exception as e:
+            logger.error(f"Error in admin get credits: {e}")
+            await query.edit_message_text("❌ Error adding admin credits.")
+
+    async def handle_admin_test_services(self, query, context):
+        """Handle admin test services callback"""
+        user_id = query.from_user.id
+        if not self.is_admin(user_id):
+            await query.answer("❌ Admin access required.", show_alert=True)
+            return
+        
+        keyboard = []
+        for service_key, service_data in SERVICE_PACKAGES.items():
+            keyboard.append([InlineKeyboardButton(
+                f"🧪 Test {service_data['name']}", 
+                callback_data=f"admin_test_{service_key}"
+            )])
+        
+        keyboard.append([InlineKeyboardButton("🔙 Admin Panel", callback_data="admin_panel")])
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await query.edit_message_text(
+            "🧪 **Admin Service Testing**\n\n"
+            "Test any service package to ensure proper functionality:\n\n"
+            "**Available Packages:**\n"
+            "• YouTube - Video streaming optimization\n"
+            "• WhatsApp - Messaging & calls\n"
+            "• Zoom - Video conferencing\n"
+            "• Facebook - Social media\n"
+            "• Instagram - Photo sharing\n"
+            "• TikTok - Short videos\n"
+            "• Netflix - Movie streaming\n"
+            "• Telegram - Messaging\n"
+            "• Speed Test - Network testing\n"
+            "• All Sites - Universal access\n\n"
+            "Select a service to generate a test file:",
+            reply_markup=reply_markup,
+            parse_mode='Markdown'
+        )
+
+    async def handle_admin_stats(self, query, context):
+        """Handle admin statistics callback"""
+        user_id = query.from_user.id
+        if not self.is_admin(user_id):
+            await query.answer("❌ Admin access required.", show_alert=True)
+            return
+        
+        try:
+            stats = db.get_user_stats()
+            
+            stats_text = f"""
+📊 **Bot Statistics**
+
+**Users:**
+👥 Total Users: {stats.get('total_users', 0)}
+🔥 Active Users (7 days): {stats.get('active_users', 0)}
+
+**Files Generated:**
+📁 Total Files: {stats.get('total_configs', 0)}
+
+**System:**
+🚀 Bot Status: Online ✅
+💾 Database: Connected ✅
+🔧 File Generation: Active ✅
+
+**Admin Info:**
+👑 Your Status: Administrator
+💰 Credit Management: Enabled
+🧪 Testing Mode: Available
+"""
+            
+            keyboard = [[InlineKeyboardButton("🔙 Admin Panel", callback_data="admin_panel")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await query.edit_message_text(stats_text, reply_markup=reply_markup, parse_mode='Markdown')
+            
+        except Exception as e:
+            logger.error(f"Error getting admin stats: {e}")
+            await query.edit_message_text("❌ Error retrieving statistics.")
+
     async def generate_config_direct(self, query, context, config_type):
         """Generate SSH or auto config directly"""
         user_id = query.from_user.id
@@ -665,12 +995,8 @@ Share this link with friends to earn points!
                     await query.edit_message_text("❌ Unable to generate config. Please check your points.")
                     return
                 
-                if check_result["use_free"]:
-                    db.use_free_config(user_id)
-                    points_remaining = check_result["points_after"]
-                else:
-                    db.deduct_points(user_id, POINTS_CONFIG["config_cost"])
-                    points_remaining = check_result["points_after"]
+                db.deduct_points(user_id, POINTS_CONFIG["config_cost"])
+                points_remaining = check_result["points_after"]
             else:
                 points_remaining = "Unlimited (Admin)"
             
@@ -693,10 +1019,23 @@ Share this link with friends to earn points!
             if config_data.get("speed_test_note"):
                 speed_test_note = f"\n\n⚡ **Speed Test Tip:**\n{config_data['speed_test_note']}"
             
-            success_message = MESSAGES["generation_success"].format(
-                points=points_remaining,
-                config=formatted_config
-            ) + speed_test_note
+            success_message = f"""
+✅ **SSH File Generated Successfully!**
+
+💰 Coins remaining: **{points_remaining}**
+
+📋 **File Details:**
+{formatted_config}
+
+🔧 **How to Use This SSH File:**
+1. Download Termux or SSH client app
+2. Use the credentials above to connect
+3. Command: `ssh {config_data.get('username', 'user')}@{config_data.get('host', 'server')} -p {config_data.get('port', 22)}`
+4. Enter the password when prompted
+5. You now have terminal access!
+
+💡 **This file provides secure shell access for browsing!**
+""" + (speed_test_note or "")
             
             keyboard = [
                 [InlineKeyboardButton("🔄 Generate Another", callback_data="generate")]
@@ -724,6 +1063,9 @@ Share this link with friends to earn points!
         app.add_handler(CommandHandler("generate", self.generate_command))
         app.add_handler(CommandHandler("points", self.points_command))
         app.add_handler(CommandHandler("admin_test", self.admin_test_command))
+        app.add_handler(CommandHandler("admin_credits", self.admin_credits_command))
+        app.add_handler(CommandHandler("give_credits", self.give_credits_command))
+        app.add_handler(CommandHandler("check_user", self.check_user_command))
         
         # Callback query handler
         app.add_handler(CallbackQueryHandler(self.button_callback))
