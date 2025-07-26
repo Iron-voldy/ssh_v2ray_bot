@@ -39,7 +39,7 @@ CHANNELS = [
 
 # Points Configuration
 POINTS_CONFIG = {
-    "initial_coins": 10,     # Initial coins for new users
+    "initial_coins": 0,     # Initial coins for new users
     "referral": 3,           # Points for each successful referral
     "channel_join": 5,       # Points for joining all channels
     "daily_bonus": 1,        # Daily bonus points (future feature)
